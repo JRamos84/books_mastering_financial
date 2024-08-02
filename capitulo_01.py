@@ -30,7 +30,7 @@ frame_M5 = mt5.TIMEFRAME_M5
 
 def get_quotes(time_frame, year=2024, month=1, day=1, asset='EURUSD'):
     timezone = pytz.timezone('Etc/UTC')
-    time_from = datetime.datetime(2024, 1, 10, tzinfo=timezone)
+    time_from = datetime.datetime(2023, 1, 10, tzinfo=timezone)
     time_to = datetime.datetime(2024, 2,10,  tzinfo=timezone) # Fecha actual en UTC
     print('adui',datetime.datetime.now(timezone))
     print('ui',time_to)
@@ -108,12 +108,42 @@ def ohlc_plot_bars(data, window):
             plt.vlines(x=i, ymin=sample[i, 3], ymax=sample[i, 0] + 0.0003, color='black', linewidth=1)
     plt.grid()
     plt.show()
+    
+def signal_chart(data, position, buy_column, sell_column, window=500):
+    # Utiliza iloc para cortar el DataFrame
+ 
+    sample = data[-window:,]
+    
+    print("Shape of sample:", sample.shape)
+    
+    fig, ax = plt.subplots(figsize=(10, 5))
+    
+    ohlc_plot_bars(data, window)
+    
+    # Verifica los índices de columna
+    num_columns = sample.shape[1]
+    print(f"Number of columns in sample: {num_columns}")
+    
+    for i in range(len(sample)):
+        if  sample[i, buy_column] == 1:
+            x = i
+            y = sample[i, position]
+            ax.annotate('', xy=(x, y), xytext=(x, y),
+                        arrowprops=dict(width=9, headlength=11, headwidth=11, facecolor='green', edgecolor='green'))
+        if sample[i, sell_column] == -1:
+            x = i
+            y = sample[i, position]
+            ax.annotate('', xy=(x, y), xytext=(x, y),
+                        arrowprops=dict(width=9, headlength=11, headwidth=11, facecolor='red', edgecolor='red'))
+ 
+    plt.show()
+    
 
 # Ejemplo de uso
 
 # Paso 1: Importar datos
 asset = 'USDJPY'
-time_frame = 'M5'
+time_frame = 'H1'
 data = mass_import(asset, time_frame)
 
 if data is not None:
@@ -121,12 +151,19 @@ if data is not None:
     data_array = data.to_numpy()
 
     # Paso 2: Generar señales
-    data_with_signals = signal(data_array)
+    data = signal(data_array)
 
     # Paso 3: Plotear datos OHLC con señales
-    ohlc_plot_bars(data_with_signals, window=100)
+   # ohlc_plot_bars(data_with_signals, window=100)
+    ##marcar Posicin
+    
+    signal_chart(data,0, 4, 5, window = 500)
+    
 else:
     print("No se pudieron obtener datos para el análisis.")
 
 # Finalizar conexión a MetaTrader 5
 mt5.shutdown()
+
+
+
