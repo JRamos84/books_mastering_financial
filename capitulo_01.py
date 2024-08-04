@@ -53,6 +53,12 @@ def add_column(data, times):
         data = np.append(data, new, axis=1)
     return data
 
+def delete_row(data, number):
+    data = data[number:,]
+    
+    return data
+
+
 def signal(data):
     data = add_column(data, 2)
     for i in range(len(data)):
@@ -132,14 +138,394 @@ def performance(data, open_price, buy_column, sell_column, long_result_col, shor
                     
 
 
-# Ejemplo de uso
-horizon = 'H1'
-asset = 'USDJPY'
-mydata = mass_import(asset, horizon)
-mydata = signal(mydata)
+def ohlc_plot_candles(data, window):
+    sample = data[-window:,]
+    
+    for i in range(len(sample)):
+        
+        plt.vlines(x = i, ymin=sample[i,2], ymax=sample[i,1], color='black',linewidth=1)
+        
+        if sample[i,3] > sample[i,0]:
+            plt.vlines(x=i, ymin=sample[i,0], ymax=sample[i,3], color='green', linewidth=3)
+            
+        if sample[i,3] < sample[i,0]:
+            plt.vlines(x=i, ymin=sample[i,3], ymax=sample[i,0], color='red', linewidth=3)
+        
+        if sample[i,3] == sample[i,0]:
+            plt.vlines(x=i, ymin=sample[i,3], ymax=sample[i,0] + 0.0003, color='black', linewidth=1)
+        plt.grid()
+        
+def ma(data, lookback, close, position):
+    # Agrega una columna extra para almacenar la media móvil
+    data = add_column(data, 1)
+    
+    for i in range(len(data)):
+        try:
+            data[i, position] = np.mean(data[i - lookback + 1:i + 1, close])
+        except IndexError:
+            pass
+    
+    # Elimina las filas iniciales donde la media móvil no se puede calcular
+    data = delete_row(data, lookback - 1)
+    
+    return data
 
-# Verificar si las señales se han generado correctamente
-print(mydata[-50:])  # Imprimir las últimas filas para verificar las señales
+def smoothed_ma(data, alpha, lookback, close, position):
+    
+    lookback = (2*lookback) - 1 
+    
+    alpha = alpha/(lookback + 1 )
+    
+    beta = 1 - alpha
+    
+    data[lookback + 1 , position] = (data[lookback+1,close]*alpha) + (data[lookback,position] * beta)
+    
+    for i in range(lookback +2 , len(data)):
+        
+        try:
+            data[i, position] = (data[i, close]*alpha) + (data[i-1, position]*beta)
+        except IndexError:
+            pass
+    return data
 
-signal_chart(mydata, 3, 4, 5, window=500)  # Cambiar `position` a 3 para usar la columna 'close'
+def rsi(data, lookback, close , position):
+    
+    data = add_column(data, 5)
+    
+    for i in range(len(data)):
+        data[i, position] = data[i,close] - data[i-1,close]
+    
+    for i in range(len(data)):
+        if data[i, position] > 0:
+            data[i, position +1] = data[i, position]
+        elif data[i, position] < 0:
+            data[position +2 ] =abs(data[i,position])
+    data = smoothed_ma(data, 2, lookback,position +1 , position +3)
+    data = smoothed_ma(data, 2, lookback,position +2 , position +4)
+    
+    data[:, position + 5] = data[:, position + 3 ] / data[:, position + 4]
+    data[:, position + 6] = (100 - (100/(1+data[:,position + 5])))
+    
+    data = delete_row(data, position, 6)
+    data = delete_row(data, lookback)
+    
+    return data
+
+def signal_marubozu(data,open_column,high_column, low_column, close_column,buy_column, sell_column):
+    
+    data = add_column(data, 5)
+    
+    for i in range(len(data)):
+        
+        try:
+            if data[i, close_column] > data[i,open_column] and data[i, high_column] == data[i,close_column] and \
+                data[i, low_column] == data[i,open_column] and data[i,buy_column] == 0:
+                    data[i + 1, buy_column] == 1 
+            elif [i, close_column] < data[i,open_column] and data[i, high_column] == data[i,open_column] and \
+                data[i, low_column] == data[i,close_column] and data[i,sell_column] == 0:
+                    data[i + 1, buy_column] == -1 
+        except IndexError:
+            pass
+    return data
+
+def signal_Three_Candles(data, open_column, high_column, low_column, close_column, buy_column, sell_column, threshold):
+    # Asegúrate de que hay suficiente espacio para nuevas columnas
+    if data.shape[1] <= buy_column or data.shape[1] <= sell_column:
+        data = add_column(data, max(buy_column, sell_column) - data.shape[1] + 1)
+    
+    # Itera a través de los datos
+    for i in range(len(data) - 3):  # Ajusta el rango para evitar IndexError
+        try:
+            body_current = data[i, close_column] - data[i, open_column]
+            body_prev1 = data[i - 1, close_column] - data[i - 1, open_column]
+            body_prev2 = data[i - 2, close_column] - data[i - 2, open_column]
+            
+            # Verificar que los cuerpos sean similares dentro del umbral
+            if abs(body_current - body_prev1) <= threshold and abs(body_prev1 - body_prev2) <= threshold:
+                if body_current > 0 and data[i, close_column] > data[i - 1, close_column] > data[i - 2, close_column] > data[i - 3, close_column] and data[i, buy_column] == 0:
+                    data[i + 1, buy_column] = 1
+                elif body_current < 0 and data[i, close_column] < data[i - 1, close_column] < data[i - 2, close_column] < data[i - 3, close_column] and data[i, sell_column] == 0:
+                    data[i + 1, sell_column] = -1
+        except IndexError:
+            continue
+    
+    return data
+
+
+def signal_tasuki(data, open_column, close_column, buy_column, sell_column):
+    # Asegurarse de que haya suficiente espacio para las nuevas columnas
+    data = add_column(data, 5)
+    
+    # Iterar sobre los datos
+    for i in range(2, len(data) - 1):  # Comenzar desde el tercer elemento y detenerse un elemento antes del final
+        try:
+            # Patrón alcista
+            if data[i, close_column] < data[i, open_column] and \
+               data[i, close_column] < data[i - 1, open_column] and \
+               data[i, close_column] > data[i - 2, close_column] and \
+               data[i - 1, close_column] > data[i - 1, open_column] and \
+               data[i - 1, open_column] > data[i - 2, close_column] and \
+               data[i - 2, close_column] > data[i - 2, open_column]:
+                data[i + 1, buy_column] = 1
+
+            # Patrón bajista
+            elif data[i, close_column] > data[i, open_column] and \
+                 data[i, close_column] > data[i - 1, open_column] and \
+                 data[i, close_column] < data[i - 2, close_column] and \
+                 data[i - 1, close_column] < data[i - 1, open_column] and \
+                 data[i - 1, open_column] < data[i - 2, close_column] and \
+                 data[i - 2, close_column] < data[i - 2, open_column]:
+                data[i + 1, sell_column] = -1
+        
+        except IndexError:
+            # Ignorar índices fuera de rango
+            pass
+    
+    return data
+
+
+def signal_three_Methods(data, open_column, high_column, low_column, close_column, buy_column, sell_column):
+    # Asegurarse de que haya suficiente espacio para las nuevas columnas
+    data = add_column(data, 5)
+    
+    # Iterar sobre los datos
+    for i in range(4, len(data) - 1):  # Comenzar desde el índice 4 y detenerse un elemento antes del final
+        try:
+            # Patrón alcista
+            if (data[i, close_column] > data[i, open_column] and
+                data[i, close_column] > data[i - 4, high_column] and
+                data[i, low_column] < data[i - 1, low_column] and
+                data[i - 1, close_column] < data[i - 4, close_column] and
+                data[i - 1, low_column] > data[i - 4, low_column] and
+                data[i - 2, close_column] < data[i - 4, close_column] and
+                data[i - 2, low_column] > data[i - 4, low_column] and
+                data[i - 3, close_column] < data[i - 4, close_column] and
+                data[i - 3, low_column] > data[i - 4, low_column] and
+                data[i - 4, close_column] > data[i - 4, open_column]):
+                data[i + 1, buy_column] = 1
+
+            # Patrón bajista
+            elif (data[i, close_column] < data[i, open_column] and
+                  data[i, close_column] < data[i - 4, low_column] and
+                  data[i, high_column] > data[i - 1, high_column] and
+                  data[i - 1, close_column] > data[i - 4, close_column] and
+                  data[i - 1, high_column] < data[i - 4, high_column] and
+                  data[i - 2, close_column] > data[i - 4, close_column] and
+                  data[i - 2, high_column] < data[i - 4, high_column] and
+                  data[i - 3, close_column] > data[i - 4, close_column] and
+                  data[i - 3, high_column] < data[i - 4, high_column] and
+                  data[i - 4, close_column] < data[i - 4, open_column]):
+                data[i + 1, sell_column] = -1
+
+        except IndexError:
+            # Ignorar índices fuera de rango
+            pass
+
+    return data
+
+def signal_hikkake(data, open_column, high_column, low_column, close_column, buy_signal, sell_signal):
+    # Asegurarse de que haya suficientes columnas para las señales
+    data = add_column(data, 5)
+    
+    # Iterar sobre los datos, comenzando desde el índice 4 y terminando antes del final
+    for i in range(4, len(data) - 1):  # Ajustado para evitar acceso fuera de rango
+        try:
+            # Patrón alcista
+            if (data[i, close_column] > data[i - 3, high_column] and
+                data[i, close_column] > data[i - 4, close_column] and
+                data[i - 1, low_column] < data[i, open_column] and
+                data[i - 1, close_column] < data[i, close_column] and
+                data[i - 1, high_column] <= data[i - 3, high_column] and
+                data[i - 2, low_column] < data[i, open_column] and
+                data[i - 2, close_column] < data[i, close_column] and
+                data[i - 2, high_column] <= data[i - 3, high_column] and
+                data[i - 3, high_column] < data[i - 4, high_column] and
+                data[i - 3, low_column] > data[i - 4, low_column] and
+                data[i - 4, close_column] > data[i - 4, open_column]):
+                data[i + 1, buy_signal] = 1
+
+            # Patrón bajista
+            elif (data[i, close_column] < data[i - 3, low_column] and
+                  data[i, close_column] < data[i - 4, close_column] and
+                  data[i - 1, high_column] > data[i, open_column] and
+                  data[i - 1, close_column] > data[i, close_column] and
+                  data[i - 1, low_column] >= data[i - 3, low_column] and
+                  data[i - 2, high_column] > data[i, open_column] and
+                  data[i - 2, close_column] > data[i, close_column] and
+                  data[i - 2, low_column] >= data[i - 3, low_column] and
+                  data[i - 3, low_column] > data[i - 4, low_column] and
+                  data[i - 3, high_column] < data[i - 4, high_column] and
+                  data[i - 4, close_column] < data[i - 4, open_column]):
+                data[i + 1, sell_signal] = -1
+
+        except IndexError:
+            # Ignorar índices fuera de rango
+            pass
+
+    return data
+
+
+
+def signal_quintuples(data, open_column, close_column, buy_column, sell_column, body_max_size):
+    data = add_column(data, 5)
+    for i in range(len(data)):
+        try:
+            # Bullish pattern
+            if data[i, close_column] > data[i, open_column] and \
+               data[i, close_column] > data[i - 1, close_column] and \
+               (data[i, close_column] - data[i, open_column]) < body_max_size and \
+               data[i - 1, close_column] > data[i - 1, open_column] and \
+               data[i - 1, close_column] > data[i - 2, close_column] and \
+               (data[i - 1, close_column] - data[i - 1, open_column]) < body_max_size and \
+               data[i - 2, close_column] > data[i - 2, open_column] and \
+               data[i - 2, close_column] > data[i - 3, close_column] and \
+               (data[i - 2, close_column] - data[i - 2, open_column]) < body_max_size and \
+               data[i - 3, close_column] > data[i - 3, open_column] and \
+               data[i - 3, close_column] > data[i - 4, close_column] and \
+               (data[i - 3, close_column] - data[i - 3, open_column]) < body_max_size and \
+               data[i - 4, close_column] > data[i - 4, open_column] and \
+               (data[i - 4, close_column] - data[i - 4, open_column]) < body_max_size and \
+               data[i, buy_column] == 0:
+                data[i + 1, buy_column] = 1
+            # Bearish pattern
+            elif data[i, close_column] < data[i, open_column] and \
+                 data[i, close_column] < data[i - 1, close_column] and \
+                 (data[i, open_column] - data[i, close_column]) < body_max_size and \
+                 data[i - 1, close_column] < data[i - 1, open_column] and \
+                 data[i - 1, close_column] < data[i - 2, close_column] and \
+                 (data[i - 1, open_column] - data[i - 1, close_column]) < body_max_size and \
+                 data[i - 2, close_column] < data[i - 2, open_column] and \
+                 data[i - 2, close_column] < data[i - 3, close_column] and \
+                 (data[i - 2, open_column] - data[i - 2, close_column]) < body_max_size and \
+                 data[i - 3, close_column] < data[i - 3, open_column] and \
+                 data[i - 3, close_column] < data[i - 4, close_column] and \
+                 (data[i - 3, open_column] - data[i - 3, close_column]) < body_max_size and \
+                 data[i - 4, close_column] < data[i - 4, open_column] and \
+                 (data[i - 4, open_column] - data[i - 4, close_column]) < body_max_size and \
+                 data[i, sell_column] == 0:
+                data[i + 1, sell_column] = -1
+        except IndexError:
+            pass
+    return data
+
+
+
+def atr(data, lookback, high_column, low_column, close_column, position):
+    # Añadir una columna para almacenar el ATR
+    data = add_column(data, 1)
+    
+    # Calcular el rango verdadero para cada fila
+    for i in range(len(data)):
+        try:
+            # Calcular el rango verdadero
+            data[i, position] = max(
+                data[i, high_column] - data[i, low_column],  # Rango de hoy
+                abs(data[i, high_column] - data[i - 1, close_column]),  # Alto de hoy menos cierre de ayer
+                abs(data[i, low_column] - data[i - 1, close_column])   # Bajo de hoy menos cierre de ayer
+            )
+        except ValueError:
+            pass
+    
+    # Inicializar el primer valor del ATR
+    data[0, position] = 0
+    
+    # Aplicar un promedio móvil suavizado al ATR
+    data = smoothed_ma(data, 2, lookback, position, position + 1)
+    
+    # Eliminar la columna temporal utilizada para el cálculo
+    data = delete_column(data, position, 1)
+    
+    # Eliminar las filas que no tienen suficientes datos para el ATR completo
+    data = delete_row(data, lookback)
+    
+    return data
+
+def signal_double_trouble(data, open_column, high_column, low_column, close_column,
+           atr_column, buy_column, sell_column):
+    # Asegúrate de añadir una columna extra para las señales de compra/venta
+    data = add_column(data, 5)  
+    
+    for i in range(len(data)):
+        try:
+            # Verificación para evitar acceso a índices negativos
+            if i >= 1 and i < len(data):
+                # Patrón alcista
+                if data[i, close_column] > data[i, open_column] and \
+                   data[i, close_column] > data[i - 1, close_column] and \
+                   data[i - 1, close_column] > data[i - 1, open_column] and \
+                   data[i, high_column] - data[i, low_column] > (2 * data[i - 1, atr_column]) and \
+                   data[i, close_column] - data[i, open_column] > data[i - 1, close_column] - data[i - 1, open_column] and \
+                   data[i, buy_column] == 0:
+                    data[i + 1, buy_column] = 1
+                
+                # Patrón bajista
+                elif data[i, close_column] < data[i, open_column] and \
+                     data[i, close_column] < data[i - 1, close_column] and \
+                     data[i - 1, close_column] < data[i - 1, open_column] and \
+                     data[i, high_column] - data[i, low_column] > (2 * data[i - 1, atr_column]) and \
+                     data[i, open_column] - data[i, close_column] > data[i - 1, open_column] - data[i - 1, close_column] and \
+                     data[i, sell_column] == 0:
+                    data[i + 1, sell_column] = -1
+
+        except IndexError:
+            # Captura cualquier error de índice, posiblemente causado por el acceso a datos fuera de rango
+            pass
+
+    return data
+
+def signal_double_trouble_atr_threshold(data, open_column, high_column, low_column, close_column,
+           atr_column, buy_column, sell_column, atr_threshold):
+    data = add_column(data, 5)
+    
+    for i in range(len(data)):
+        try:
+            # Bullish pattern
+            if data[i, close_column] > data[i, open_column] and \
+               data[i, close_column] > data[i - 1, close_column] and \
+               data[i - 1, close_column] > data[i - 1, open_column] and \
+               data[i, high_column] - data[i, low_column] > (2 * data[i - 1, atr_column]) and \
+               data[i, close_column] - data[i, open_column] > data[i - 1, close_column] - data[i - 1, open_column] and \
+               data[i - 1, atr_column] > atr_threshold and \
+               data[i, buy_column] == 0:
+                data[i + 1, buy_column] = 1
+
+            # Bearish pattern
+            elif data[i, close_column] < data[i, open_column] and \
+                 data[i, close_column] < data[i - 1, close_column] and \
+                 data[i - 1, close_column] < data[i - 1, open_column] and \
+                 data[i, high_column] - data[i, low_column] > (2 * data[i - 1, atr_column]) and \
+                 data[i, open_column] - data[i, close_column] > data[i - 1, open_column] - data[i - 1, close_column] and \
+                 data[i - 1, atr_column] > atr_threshold and \
+                 data[i, sell_column] == 0:
+                data[i + 1, sell_column] = -1
+        except IndexError:
+            pass
+    
+    return data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
