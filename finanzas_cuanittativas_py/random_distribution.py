@@ -7,16 +7,20 @@ import importlib
 
 import random_variables
 importlib.reload(random_variables)
+#inputs
+inputs = random_variables.simulation_input()
+inputs.df = 23 # degrees of freedom or df in student and chi-squared
+inputs.scale=17 # scale in exponential
+inputs.mean = 5 # mean in normal
+inputs.std = 10 # standard deviation ot std in normal
+inputs.size = 10**6
+inputs.rv_type = 'real'
+# options: standard_normal, normal, student, uniform, exponetial, chi-squared'
+inputs.decimals = 5
 
-# inputs
-coeff = 200
-# df in student and chi-squared, scale in exponential
-size = 10**6
-random_variable_type = 'normal'
-# options: normal student uniform exponential chi-squared
-decimals = 5
 
-sim = random_variables.simulator(coeff, random_variable_type)
+#Computations
+sim = random_variables.simulator(inputs)
 sim.generate_vector()
 sim.compute_stats()
 sim.plot()
