@@ -7,69 +7,40 @@ import os
 # import our own files and reload
 import random_variables
 importlib.reload(random_variables)
+import market_data
+importlib.reload(market_data)
 
-# inputs
+directory = '/home/joseph/Documents/personal/quant/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
 ric = 'SPY'
-
-directory = '/home/joseph/Documents/proyecto-portafolio/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
-path = directory + ric + '.csv' 
-raw_data = pd.read_csv(path)
-t = pd.DataFrame()
-t['date'] = pd.to_datetime(raw_data['Date'])
-t['close'] = raw_data['Close']
-t.sort_values(by='date', ascending=True)
-t['close_previous'] = t['close'].shift(1)
-t['return_close'] = t['close']/t['close_previous'] - 1
-t = t.dropna()
-t = t.reset_index(drop=True)
-
-
-# inputs
-inputs = random_variables.simulation_inputs()
-inputs.rv_type = ric + ' | real data'
-# options: standard_normal normal student uniform exponential chi-squared
-inputs.decimals = 5
-
 # computations
-sim = random_variables.simulator(inputs)
-sim.vector = t['return_close'].values
-sim.inputs.size  = len(sim.vector)
-sim.str_title = sim.inputs.rv_type
-sim.compute_stats()
-sim.plot()
+dist = market_data.distribution(ric)
+dist.load_timeseries()
+dist.plot_timeseries()
+dist.compute_stats()
+dist.plot_histogram()
 
-rics = []
-is_normals = []
-for file_name in os.listdir(directory):
-    if not file_name.endswith('.csv'):
-        continue
+
+
+# rics = []
+# is_normals = []
+# for file_name in os.listdir(directory):
+#     if not file_name.endswith('.csv'):
+#         continue
     
-    ric = file_name.split('.')[0]
-    if ric == 'ReadMe':
-        continue
-
-    path = directory + ric + '.csv' 
-    print(path)
-    raw_data = pd.read_csv(path)
-    t = pd.DataFrame()
-    t['date'] = pd.to_datetime(raw_data['Date'])
-    t['close'] = raw_data['Close']
-    t.sort_values(by='date', ascending=True)
-    t['close_previous'] = t['close'].shift(1)
-    t['return_close'] = t['close']/t['close_previous'] - 1
-    t = t.dropna()
-    t = t.reset_index(drop=True)
-    sim = random_variables.simulator(inputs)
-    sim.vector = t['return_close'].values
-    sim.inputs.size  = len(sim.vector)
-    sim.str_title = sim.inputs.rv_type
-    sim.compute_stats()
-    #Generate list
-    rics.append(ric)
-    is_normals.append(sim.is_normal)
-df = pd.DataFrame()
-df['rics'] = rics
-df['is_normal'] = is_normals
+#     ric = file_name.split('.')[0]
+#     if ric == 'ReadMe':
+#         continue
+#     path = directory + ric + '.csv' 
+#     dist = market_data.distribution(ric)
+#     dist.load_timeseries()
+#     dist.compute_stats()
+#     #Generate list
+#     rics.append(ric)
+#     is_normals.append(dist.is_normal)
+# df = pd.DataFrame()
+# df['rics'] = rics
+# df['is_normal'] = is_normals
+# df =  df.sort_values(by='is_normal', ascending=True)
 
 
 
