@@ -14,7 +14,7 @@ import numpy as np
 import importlib
 
 
-class simulation_input:
+class simulation_inputs:
     def __init__(self):
         self.df = None
         self.scale = None
