@@ -16,8 +16,8 @@ import pandas as pd
 import os
 
 def load_timeseries(ric):
-   # directory = '/home/joseph/Documents/personal/quant/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
-    directory = '/home/joseph/Documents/proyecto-portafolio/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
+    directory = '/home/joseph/Documents/personal/quant/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
+   # directory = '/home/joseph/Documents/proyecto-portafolio/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
     path = directory + ric + '.csv' 
     raw_data = pd.read_csv(path)
     t = pd.DataFrame()

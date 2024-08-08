@@ -15,9 +15,17 @@ import importlib
 import pandas as pd
 import os
 
+import market_data
+importlib.reload(market_data)
 
+def compute_beta(benchmark, security):
+    m = model(benchmark, security)
+    m.synchonise_timeseries()
+    m.compute_linear_regression()
+    return m.beta
+    
 
-class capm:
+class model:
     
     def __init__(self,benchmark, security, decimals=5):
         self.benchmark = benchmark
@@ -33,7 +41,7 @@ class capm:
         self.predictor_linreg = None
         
     def synchonise_timeseries(self):
-        self.timeseries = synchronise_timeseries(self.benchmark, self.security)
+        self.timeseries = market_data.synchronise_timeseries(self.benchmark, self.security)
         
     def plot_timeseries(self):
         
@@ -87,6 +95,41 @@ class capm:
         plt.show()
 
 
+class hedger:
+    
+    def __init__(self, position_ric, position_delta_usd,benchmark,hedger_securities):
+        
+        self.position_ric = position_ric
+        self.position_delta_usd  = position_delta_usd
+        self.position_beta = None
+        self.position_beta_usd = position_delta_usd
+        self.benchmark = benchmark
+        self.hedger_securities = hedger_securities
+        self.hedger_betas = []
+        
+    def compute_betas(self):
+        self.position_beta = compute_beta(self.benchmark, self.position_ric)
+        self.position_beta_usd = self.position_beta_usd * self.position_beta
+        for security in self.hedger_securities:
+            beta = compute_beta(self.benchmark, security)
+            self.hedger_betas.append(beta)
+            
+    def compute_hedge_weights(self):
+        dimensions = len(self.hedger_securities)
+        if dimensions != 2:
+            print('-------')
+            print('Cannot compute exact solution because dimensions = ' + str(dimensions))
+            return
+        deltas = np.ones([dimensions])
+        mtx = np.transpose(np.column_stack((deltas,self.hedger_betas)))
+        targets = -np.array([[self.position_delta_usd, self.position_beta_usd]])
+        self.optimal_hedge = np.linalg.inv(mtx).dot(targets)
+        self.hedger_betas = np.sum(self.optimal_hedge)
+        self.hedger_betas_usd = np.transpose(betas).dot(self.optimal_hedge).item()
+
+        
+            
+        
 
 
      

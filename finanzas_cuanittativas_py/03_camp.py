@@ -6,20 +6,18 @@ import importlib
 import os
 # import our own files and reload
 
-import market_data
-importlib.reload(market_data)
+import capm
+importlib.reload(capm)
 
 benchmark = 'GOOG' 
-#security = 'XLK'
 security = 'AAPL'
 
+model = capm.model(benchmark, security)
+model.synchonise_timeseries()
+model.plot_timeseries()
+model.compute_linear_regression()
+model.plot_regression_linear()
 
-camp = market_data.capm(benchmark, security)
-camp.synchonise_timeseries()
-camp.plot_timeseries()
-camp.compute_linear_regression()
-camp.plot_regression_linear()
-# linear regression
 
 
 
