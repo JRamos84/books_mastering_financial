@@ -11,7 +11,7 @@ import market_data
 importlib.reload(market_data)
 
 directory = '/home/joseph/Documents/personal/quant/books_mastering_financial/finanzas_cuanittativas_py/2024-1-data/'
-ric = 'SPY'
+ric = 'MA'
 # computations
 dist = market_data.distribution(ric)
 dist.load_timeseries()
