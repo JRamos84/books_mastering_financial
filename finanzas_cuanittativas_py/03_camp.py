@@ -45,3 +45,71 @@ ax2 = timeseries.plot(kind='line', x='date', y='close_y', ax=ax, grid=True,\
                       color='red', secondary_y=True, label=security)
 ax1.legend(loc=2)
 ax2.legend(loc=1)
+
+# linear regression
+
+decimals = 4
+x = timeseries['return_x'].values
+y = timeseries['return_y'].values
+slope,intercept, r_value,p_value,std_err = st.linregress(x,y)
+alpha = np.round(intercept, decimals)
+beta = np.round(slope, decimals)
+p_value = np.round(p_value, decimals)
+null_hypothesis = p_value > 0.05
+corrrelation = np.round(r_value, decimals)
+r_squared = np.round(r_value**2, decimals)
+predictor_linreg = intercept + slope * x
+
+
+# plot linear regression
+str_self = 'Linear regression | security ' + security\
++ '| benchmark ' + benchmark + '\n'\
++ 'alpha (intercept) ' + str(alpha)\
++ ' | beta (slope) ' + str(beta) + '\n'\
++ 'p_value ' + str(p_value)\
++ ' | null hypothesis ' + str(null_hypothesis)\
++ 'correl (r_value) ' + str(corrrelation)\
++ ' | r_squared ' + str(r_squared)
+
+str_title = 'Scatter of returns' + '\n' + str_self
+
+plt.figure(figsize=(12,5))
+plt.title(str_title)
+plt.scatter(x, y)
+plt.plot(x,predictor_linreg, color='green')
+plt.ylabel(security)
+plt.xlabel(benchmark)
+plt.grid()
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
