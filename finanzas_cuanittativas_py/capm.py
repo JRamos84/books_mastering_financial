@@ -97,19 +97,23 @@ class model:
 
 class hedger:
     
-    def __init__(self, position_ric, position_delta_usd,benchmark,hedger_securities):
+    def __init__(self, position_security, position_delta_usd,benchmark,hedger_securities):
         
-        self.position_ric = position_ric
+        self.position_security = position_security
         self.position_delta_usd  = position_delta_usd
         self.position_beta = None
         self.position_beta_usd = position_delta_usd
         self.benchmark = benchmark
         self.hedger_securities = hedger_securities
         self.hedger_betas = []
+        self.hedge_weights = None
+        self.hedger_delta_usd = None
+        self.hedger_betas_usd = None
+    
         
     def compute_betas(self):
-        self.position_beta = compute_beta(self.benchmark, self.position_ric)
-        self.position_beta_usd = self.position_beta_usd * self.position_beta
+        self.position_beta = compute_beta(self.benchmark, self.position_security)
+        self.position_beta_usd = self.position_delta_usd * self.position_beta
         for security in self.hedger_securities:
             beta = compute_beta(self.benchmark, security)
             self.hedger_betas.append(beta)
@@ -122,10 +126,11 @@ class hedger:
             return
         deltas = np.ones([dimensions])
         mtx = np.transpose(np.column_stack((deltas,self.hedger_betas)))
-        targets = -np.array([[self.position_delta_usd, self.position_beta_usd]])
-        self.optimal_hedge = np.linalg.inv(mtx).dot(targets)
-        self.hedger_betas = np.sum(self.optimal_hedge)
-        self.hedger_betas_usd = np.transpose(betas).dot(self.optimal_hedge).item()
+        targets = -np.array([[self.position_delta_usd], [self.position_beta_usd]])
+        self.hedge_weights = np.linalg.inv(mtx).dot(targets)
+        self.hedger_delta_usd = np.sum(self.hedge_weights)
+        self.hedger_betas_usd = np.transpose(self.hedger_betas).dot(self.hedge_weights).item()
+
 
         
             

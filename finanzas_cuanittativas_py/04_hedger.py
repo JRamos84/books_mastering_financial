@@ -19,10 +19,11 @@ importlib.reload(capm)
 
 # inputs 
 
-position_ric = 'NVDA'
+position_security= 'NVDA'
 position_delta_usd = 10 # in mn USD
 benchmark = '^SPX'
-hedger_rics = ['AAPL', 'MSFT']
+hedger_security = ['AAPL', 'MSFT']
 
-hedger = capm.hedger(position_ric,position_delta_usd,benchmark,hedger_rics)
+hedger = capm.hedger(position_security,position_delta_usd,benchmark,hedger_security)
 hedger.compute_betas()
+hedger.compute_hedge_weights()
